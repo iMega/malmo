@@ -14,91 +14,66 @@
 -- You should have received a copy of the GNU General Public License
 -- along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-local inspect   = require 'inspect'
-
 require "resty.validation.ngx"
 local validation = require "resty.validation"
-local json   = require 'cjson'
-local socket = require 'socket'
-local smtp   = require 'socket.smtp'
-local ssl    = require 'ssl'
-local https  = require 'ssl.https'
-local ltn12  = require 'ltn12'
+local uuid       = require "tieske.uuid"
+local redis      = require "resty.redis"
 
-local username = ngx.var.username
-local password = ngx.var.password
-local server   = ngx.var.server
-
-ngx.req.read_body()
-local body = ngx.req.get_body_data()
-
-local jsonErrorParse, data = pcall(json.decode, body)
-if not jsonErrorParse then
-    ngx.status = ngx.HTTP_BAD_REQUEST
-    ngx.say("4001")
-    ngx.exit(ngx.status)
+--
+-- Generate token
+--
+-- @return string
+--
+local function generateToken()
+    uuid.randomseed(os.time())
+    return uuid()
 end
 
+local redis_ip   = ngx.var.redis_ip
+local redis_port = ngx.var.redis_port
+
 local validatorItem = validation.new{
-    to = validation.string.trim.email
+    email = validation.string.trim.email
 }
 
-local isValid, values = validatorItem(data)
+local isValid, values = validatorItem(ngx.var.email)
 if not isValid then
     ngx.status = ngx.HTTP_BAD_REQUEST
-    ngx.say("4002")
+    ngx.say("400")
     ngx.exit(ngx.status)
 end
 
 local validData = values("valid")
 
-local jsonError, jsonData = pcall(json.encode, validData)
-if not jsonError then
+local token = generateToken()
+
+local db = redis:new()
+db:set_timeout(1000)
+
+local ok, err = db:connect(redis_ip, redis_port)
+if not ok then
     ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
-    ngx.say("500")
+    ngx.say(err)
     ngx.exit(ngx.status)
 end
 
-function sslCreate()
-    local sock = socket.tcp()
-    return setmetatable({
-        connect = function(_, host, port)
-            local r, e = sock:connect(host, port)
-            if not r then return r, e end
-            sock = ssl.wrap(sock, {mode='client', protocol='tlsv1'})
-            return sock:dohandshake()
-        end
-    }, {
-        __index = function(t,n)
-            return function(_, ...)
-                return sock[n](sock, ...)
-            end
-        end
-    })
+local ok, err = db:set("activate:" .. token, validData['email'])
+if not ok then
+    ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
+    ngx.say(err)
+    ngx.exit(ngx.status)
 end
 
-function sendMail(username, password, server, from, to, subject, body)
-    local msg = {
-        headers = {
-            to      = to,
-            subject = subject
-        },
-        body = body
-    }
-
-    local ok, err = smtp.send {
-        from     = from,
-        rcpt     = to,
-        source   = smtp.message(msg),
-        user     = username,
-        password = password,
-        server   = server,
-        port     = 465,
-        create   = sslCreate
-    }
-    ngx.say(inspect(err))
-    return ok
+local ok, err = db:expire("activate:" .. token, 86400)
+if not ok then
+    ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
+    ngx.say(err)
+    ngx.exit(ngx.status)
 end
-ngx.say("dome")
-ngx.say(inspect(sendMail("irvis@imega.ru", "kjk", "smtp.gmail.com", "<irvis@imega.ru>", "<info@imega.ru>", "test", "body test")))
+
+ngx.exec("/send_activate", {
+    action = "activate",
+    to     = validData['email'],
+    token  = token,
+})
 
