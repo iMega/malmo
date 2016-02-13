@@ -81,4 +81,4 @@ if not ok then
     ngx.exit(ngx.status)
 end
 
-ngx.header["X-Accel-Redirect"] = "/send_activate/?action=account&to=" .. email .. "&user=" .. user .. "&pass=" .. pass
+ngx.header["X-Accel-Redirect"] = "/send_activate/?action=account&to=" .. email .. "&user=" .. user .. "&pass=" .. pass .. "&host_cdn=" .. ngx.var.host_cdn .. "&host=" .. ngx.var.host_primary
