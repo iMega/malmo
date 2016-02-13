@@ -18,6 +18,7 @@ require "resty.validation.ngx"
 local validation = require "resty.validation"
 local redis      = require "resty.redis"
 local uuid       = require "tieske.uuid"
+local socket     = require "socket"
 
 local redis_ip   = ngx.var.redis_ip
 local redis_port = ngx.var.redis_port
