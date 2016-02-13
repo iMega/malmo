@@ -3,6 +3,8 @@ CONTAINERS = imega_malmo imega_bremen_db
 PORT = -p 80:80
 REDIS_PORT = 6379
 ENV = PROD
+HOST_CDN =
+HOST =
 
 build:
 	@docker build -t $(IMAGE) .
@@ -22,6 +24,8 @@ endif
 	@docker run -d --name imega_malmo \
 		--env REDIS_IP=$(REDIS_IP) \
 		--env REDIS_PORT=$(REDIS_PORT) \
+		--env HOST_CDN=$(HOST_CDN) \
+		--env HOST=$(HOST) \
 		$(PORT) \
 		$(IMAGE)
 
