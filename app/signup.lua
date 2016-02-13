@@ -16,42 +16,30 @@
 
 require "resty.validation.ngx"
 local validation = require "resty.validation"
-local base64     = require "kloss.base64"
 local redis      = require "resty.redis"
-local auth       = require "imega.auth"
-local strlib     = require "imega.string"
-local json       = require "cjson"
+local uuid       = require "tieske.uuid"
 
-local headers = ngx.req.get_headers()
+local redis_ip   = ngx.var.redis_ip
+local redis_port = ngx.var.redis_port
 
-if strlib.empty(headers["Authorization"]) then
-    ngx.status = ngx.HTTP_BAD_REQUEST
-    ngx.say("400")
-    ngx.exit(ngx.status)
+--
+-- Generate token
+--
+-- @return string
+--
+local function generateUuid()
+    uuid.randomseed(os.time())
+    return uuid()
 end
 
-local matchPiece = ngx.re.match(headers["Authorization"], "Basic\\s(.+)")
-
-if strlib.empty(matchPiece[1]) then
-    ngx.status = ngx.HTTP_BAD_REQUEST
-    ngx.say("400")
-    ngx.exit(ngx.status)
-end
-
-local credentials = base64.decode(matchPiece[1])
-credentials = strlib.split(credentials, ":")
-
-local credentials = {
-    login = credentials[1],
-    pass  = credentials[2]
+local validatorItem = validation.new{
+    token = validation.string.trim:len(36,36),
 }
 
-local validatorCredentials = validation.new{
-    login = validation.string.trim:len(36,36),
-    pass  = validation.string.trim:len(36,36)
-}
+local isValid, values = validatorItem({
+    token = ngx.var.token,
+})
 
-local isValid, values = validatorCredentials(credentials)
 if not isValid then
     ngx.status = ngx.HTTP_BAD_REQUEST
     ngx.say("400")
@@ -62,55 +50,35 @@ local validData = values("valid")
 
 local db = redis:new()
 db:set_timeout(1000)
-local ok, err = db:connect(ngx.var.redis_ip, ngx.var.redis_port)
+local ok, err = db:connect(redis_ip, redis_port)
 if not ok then
     ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
     ngx.say(err)
     ngx.exit(ngx.status)
 end
 
-if not auth.authenticate(db, validData["login"], validData["pass"]) then
-    ngx.status = ngx.HTTP_FORBIDDEN
-    ngx.say("403")
-    ngx.exit(ngx.status)
-end
+local user = generateUuid()
+local pass = generateUuid()
 
-ngx.req.read_body()
-local body = ngx.req.get_body_data()
-
-local jsonErrorParse, data = pcall(json.decode, body)
-if not jsonErrorParse then
-    ngx.status = ngx.HTTP_BAD_REQUEST
-    ngx.say("400")
-    ngx.exit(ngx.status)
-end
-
-local validatorItem = validation.new{
-    sku_article_barcode   = validation.boolean,
-    show_kode_good        = validation.boolean,
-    good_discription_file = validation.boolean,
-    show_fullname_good    = validation.boolean
-}
-
-local isValid, values = validatorItem(data)
-if not isValid then
-    ngx.status = ngx.HTTP_BAD_REQUEST
-    ngx.say("400")
-    ngx.exit(ngx.status)
-end
-
-local validParams = values("valid")
-
-local jsonError, jsonData = pcall(json.encode, validParams)
-if not jsonError then
+local email, err = db:get("activate:" .. validData['token'])
+if not email then
     ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
-    ngx.say("500")
+    ngx.say(err)
     ngx.exit(ngx.status)
 end
 
-local ok, err = db:set("settings:" .. validData["login"], jsonData)
+local ok, err = db:set("auth:" .. user, pass)
 if not ok then
     ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
     ngx.say(err)
     ngx.exit(ngx.status)
 end
+
+local ok, err = db:expire("auth:" .. user, 2592000)
+if not ok then
+    ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
+    ngx.say(err)
+    ngx.exit(ngx.status)
+end
+
+ngx.header["X-Accel-Redirect"] = "/send_activate/?action=account&to=" .. email .. "&user=" .. user .. "&pass=" .. pass

@@ -73,9 +73,4 @@ if not ok then
     ngx.exit(ngx.status)
 end
 
-ngx.exec("/send_activate", {
-    action = "activate",
-    to     = validData['email'],
-    token  = token,
-})
-
+ngx.header["X-Accel-Redirect"] = "/send_activate/?action=activate&to=" .. validData['email'] .. "&token=" .. token
