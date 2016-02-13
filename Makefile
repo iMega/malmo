@@ -4,7 +4,7 @@ PORT = -p 80:80
 REDIS_PORT = 6379
 ENV = PROD
 HOST_CDN =
-HOST =
+HOST_PRIMARY =
 
 build:
 	@docker build -t $(IMAGE) .
@@ -25,7 +25,7 @@ endif
 		--env REDIS_IP=$(REDIS_IP) \
 		--env REDIS_PORT=$(REDIS_PORT) \
 		--env HOST_CDN=$(HOST_CDN) \
-		--env HOST=$(HOST) \
+		--env HOST_PRIMARY=$(HOST) \
 		$(PORT) \
 		$(IMAGE)
 
