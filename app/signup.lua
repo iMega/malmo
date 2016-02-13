@@ -27,8 +27,8 @@ local redis_port = ngx.var.redis_port
 --
 -- @return string
 --
-local function generateUuid(step)
-    uuid.randomseed(os.time() + step)
+local function generateUuid()
+    uuid.randomseed(socket.gettime()*10000)
     return uuid()
 end
 
@@ -58,7 +58,7 @@ if not ok then
 end
 
 local user = generateUuid()
-local pass = generateUuid(os.time())
+local pass = generateUuid()
 
 local email, err = db:get("activate:" .. validData['token'])
 if not email then
