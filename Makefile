@@ -25,7 +25,7 @@ endif
 		--env REDIS_IP=$(REDIS_IP) \
 		--env REDIS_PORT=$(REDIS_PORT) \
 		--env HOST_CDN=$(HOST_CDN) \
-		--env HOST_PRIMARY=$(HOST) \
+		--env HOST_PRIMARY=$(HOST_PRIMARY) \
 		$(PORT) \
 		$(IMAGE)
 
