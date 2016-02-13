@@ -36,7 +36,9 @@ local validatorItem = validation.new{
     email = validation.string.trim.email
 }
 
-local isValid, values = validatorItem(ngx.var.email)
+local isValid, values = validatorItem({
+    email = ngx.var.email,
+})
 if not isValid then
     ngx.status = ngx.HTTP_BAD_REQUEST
     ngx.say("400")
