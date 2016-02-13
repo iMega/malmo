@@ -18,7 +18,6 @@ require "resty.validation.ngx"
 local validation = require "resty.validation"
 local redis      = require "resty.redis"
 local uuid       = require "tieske.uuid"
-local socket     = require "socket"
 
 local redis_ip   = ngx.var.redis_ip
 local redis_port = ngx.var.redis_port
@@ -28,8 +27,8 @@ local redis_port = ngx.var.redis_port
 --
 -- @return string
 --
-local function generateUuid()
-    uuid.randomseed(socket.gettime()*10000)
+local function generateUuid(step)
+    uuid.randomseed(os.time() * step)
     return uuid()
 end
 
@@ -58,8 +57,8 @@ if not ok then
     ngx.exit(ngx.status)
 end
 
-local user = generateUuid()
-local pass = generateUuid()
+local user = generateUuid(1)
+local pass = generateUuid(200)
 
 local email, err = db:get("activate:" .. validData['token'])
 if not email then
