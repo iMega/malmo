@@ -50,7 +50,7 @@ local validData = values("valid")
 
 local db = redis:new()
 db:set_timeout(1000)
-local ok, err = db:connect(redis_ip, redis_port)
+local ok, err = db:connect("teleport_data", redis_port)
 if not ok then
     ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
     ngx.say(err)

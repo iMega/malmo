@@ -1,6 +1,6 @@
 IMAGE = imega/malmo
-CONTAINERS = imega_malmo imega_bremen_db
-PORT = -p 80:80
+CONTAINERS = teleport_inviter teleport_data
+PORT = -p 8081:80
 REDIS_PORT = 6379
 ENV = PROD
 HOST_CDN =
@@ -10,22 +10,24 @@ build:
 	@docker build -t $(IMAGE) .
 
 prestart:
-	@docker run -d --name imega_bremen_db leanlabs/redis
+	@docker run -d --name teleport_data leanlabs/redis
 
 start: prestart
-	@while [ "`docker inspect -f {{.State.Running}} imega_bremen_db`" != "true" ]; do \
+	@while [ "`docker inspect -f {{.State.Running}} teleport_data`" != "true" ]; do \
 		@echo "wait db"; sleep 0.3; \
 	done
-	$(eval REDIS_IP = $(shell docker inspect --format '{{ .NetworkSettings.IPAddress }}' imega_bremen_db))
+	$(eval REDIS_IP = $(shell docker inspect --format '{{ .NetworkSettings.IPAddress }}' teleport_data))
 ifeq ($(ENV),DEV)
-	docker exec imega_bremen_db \
+	docker exec teleport_data \
 		sh -c "echo SET auth:9915e49a-4de1-41aa-9d7d-c9a687ec048d 8c279a62-88de-4d86-9b65-527c81ae767a | redis-cli --pipe"
 endif
-	@docker run -d --name imega_malmo \
+	@docker run -d --name teleport_inviter \
+		--link teleport_data:teleport_data \
 		--env REDIS_IP=$(REDIS_IP) \
 		--env REDIS_PORT=$(REDIS_PORT) \
 		--env HOST_CDN=$(HOST_CDN) \
 		--env HOST_PRIMARY=$(HOST_PRIMARY) \
+		-v $(CURDIR)/app:/app \
 		$(PORT) \
 		$(IMAGE)
 

@@ -16,27 +16,41 @@
 
 require "resty.validation.ngx"
 local validation = require "resty.validation"
-local uuid       = require "tieske.uuid"
+local base64     = require "kloss.base64"
 local redis      = require "resty.redis"
+local curl       = require "lcurl"
+local json       = require "cjson"
 
-local redis_ip   = ngx.var.redis_ip
-local redis_port = ngx.var.redis_port
+ngx.req.read_body()
+local body = ngx.req.get_body_data()
 
-local validatorItem = validation.new{
-    login = validation.string.trim:len(36,36),
-}
-
-local isValid, values = validatorItem({
-    login = ngx.var.login,
-})
-
-if not isValid then
+local jsonErrorParse, data = pcall(json.decode, body)
+if not jsonErrorParse then
     ngx.status = ngx.HTTP_BAD_REQUEST
     ngx.say("400")
     ngx.exit(ngx.status)
 end
 
+local validatorItem = validation.new{
+    login = validation.string.trim:len(36,36),
+    url   = validation:regex("^(https?:\\/\\/)?([\\da-z\\.-]+)\\.([a-z\\.]{2,6})([\\/\\w \\.-]*)*$", "si"),
+}
+
+local isValid, values = validatorItem({
+    login = ngx.var.login,
+    url   = data['url'],
+})
+
+if not isValid then
+    ngx.status = ngx.HTTP_BAD_REQUEST
+    ngx.say("400 HTTP_BAD_REQUEST")
+    ngx.exit(ngx.status)
+end
+
 local validData = values("valid")
+
+local redis_ip   = ngx.var.redis_ip
+local redis_port = ngx.var.redis_port
 
 local db = redis:new()
 db:set_timeout(1000)
@@ -47,3 +61,48 @@ if not ok then
     ngx.exit(ngx.status)
 end
 
+local res, err = db:get("auth:" .. validData['login'])
+if not res then
+    ngx.status = ngx.HTTP_BAD_REQUEST
+    ngx.say("400 HTTP_BAD_REQUEST")
+    ngx.exit(ngx.status)
+end
+
+local credentials = base64.encode(validData['login'] .. ":" .. res)
+
+local site = curl.easy()
+    :setopt_url(validData['url'] .. '/teleport')
+    :setopt_httpheader{
+        "Authorization: Basic " .. credentials,
+    }
+
+local perform = function ()
+    site:perform()
+end
+
+if not pcall(perform) then
+    ngx.status = ngx.HTTP_BAD_REQUEST
+    ngx.say("400 HTTP_BAD_REQUEST")
+    ngx.exit(ngx.status)
+end
+
+local codeResponse = site:getinfo_response_code()
+
+site:close()
+
+if not ngx.HTTP_OK == codeResponse then
+    ngx.status = ngx.HTTP_BAD_REQUEST
+    ngx.say("400 HTTP_BAD_REQUEST")
+    ngx.exit(ngx.status)
+end
+
+--local res, err = db:set("auth:" .. validData['login'])
+--if not res then
+--    ngx.status = ngx.HTTP_BAD_REQUEST
+--    ngx.say("400 HTTP_BAD_REQUEST")
+--    ngx.exit(ngx.status)
+--end
+
+ngx.status = ngx.HTTP_OK
+ngx.say("200 Ok")
+ngx.exit(ngx.status)
