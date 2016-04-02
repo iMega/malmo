@@ -24,9 +24,9 @@ start: prestart
 	$(eval REDIS_IP = $(shell docker inspect --format '{{ .NetworkSettings.IPAddress }}' teleport_data))
 ifeq ($(ENV),DEV)
 	@docker exec teleport_data \
-		sh -c 'echo SET auth:9915e49a-4de1-41aa-9d7d-c9a687ec048d 8c279a62-88de-4d86-9b65-527c81ae767a | redis-cli --pipe'
+		sh -c '(echo SET auth:9915e49a-4de1-41aa-9d7d-c9a687ec048d 8c279a62-88de-4d86-9b65-527c81ae767a;sleep 1) | redis-cli --pipe'
 	@docker exec teleport_data \
-		sh -c 'echo SET activate:db4e2a20-31bf-4001-c0f9-2245d260bc2e teleport@imega.club | redis-cli --pipe'
+		sh -c '(echo SET activate:db4e2a20-31bf-4001-c0f9-2245d260bc2e teleport@imega.club;sleep 1) | redis-cli --pipe'
 endif
 	@docker run -d --name teleport_inviter \
 		--link teleport_data:teleport_data \
