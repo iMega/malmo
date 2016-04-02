@@ -18,7 +18,7 @@ prestart:
 	@docker run -d --name teleport_data leanlabs/redis
 
 start: prestart
-	@while [ "`docker inspect -f {{.State.Running}} teleport_data`" != "true" ]; do \
+	while [ "`docker inspect -f {{.State.Running}} teleport_data`" != "true" ]; do \
 		echo "wait db"; sleep 0.3; \
 	done
 	$(eval REDIS_IP = $(shell docker inspect --format '{{ .NetworkSettings.IPAddress }}' teleport_data))
