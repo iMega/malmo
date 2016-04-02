@@ -27,13 +27,13 @@ local body = ngx.req.get_body_data()
 local jsonErrorParse, data = pcall(json.decode, body)
 if not jsonErrorParse then
     ngx.status = ngx.HTTP_BAD_REQUEST
-    ngx.say("400")
+    ngx.say("400 HTTP_BAD_REQUEST")
     ngx.exit(ngx.status)
 end
 
 local validatorItem = validation.new{
     login = validation.string.trim:len(36,36),
-    url   = validation:regex("^(https?:\\/\\/)?([\\da-z\\.-]+)\\.([a-z\\.]{2,6})([\\/\\w \\.-]*)*$", "si"),
+    url   = validation:regex("^(https?:\\/\\/)?([\\da-z\\.-]+)(\\.([a-z\\.]{2,6}))?(:\\d+)?([\\/\\w \\.-]*)*$", "si"),
 }
 
 local isValid, values = validatorItem({
@@ -57,7 +57,7 @@ db:set_timeout(1000)
 local ok, err = db:connect(redis_ip, redis_port)
 if not ok then
     ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
-    ngx.say(err)
+    ngx.say("500 HTTP_INTERNAL_SERVER_ERROR")
     ngx.exit(ngx.status)
 end
 

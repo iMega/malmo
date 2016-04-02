@@ -18,6 +18,7 @@ require "resty.validation.ngx"
 local validation = require "resty.validation"
 local redis      = require "resty.redis"
 local uuid       = require "tieske.uuid"
+local json       = require "cjson"
 
 local redis_ip   = ngx.var.redis_ip
 local redis_port = ngx.var.redis_port
@@ -42,7 +43,7 @@ local isValid, values = validatorItem({
 
 if not isValid then
     ngx.status = ngx.HTTP_BAD_REQUEST
-    ngx.say("400")
+    ngx.say("400 HTTP_BAD_REQUEST")
     ngx.exit(ngx.status)
 end
 
@@ -50,10 +51,10 @@ local validData = values("valid")
 
 local db = redis:new()
 db:set_timeout(1000)
-local ok, err = db:connect("teleport_data", redis_port)
+local ok, err = db:connect(redis_ip, redis_port)
 if not ok then
     ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
-    ngx.say(err)
+    ngx.say("500 HTTP_INTERNAL_SERVER_ERROR")
     ngx.exit(ngx.status)
 end
 
@@ -61,23 +62,59 @@ local user = generateUuid(1)
 local pass = generateUuid(200)
 
 local email, err = db:get("activate:" .. validData['token'])
-if not email then
+if "string" ~= type(email) then
+    ngx.status = ngx.HTTP_NOT_FOUND
+    ngx.say("404 HTTP_NOT_FOUND")
+    ngx.exit(ngx.status)
+end
+
+local login, err = db:get("email:" .. email)
+if "string" == type(login) then
+    ngx.status = 409
+    ngx.say("409 HTTP_CONFLICT")
+    ngx.exit(ngx.status)
+end
+
+local userData = {
+    login   = user,
+    pass    = pass,
+    email   = email,
+    url     = '',
+    create  = os.date("%Y-%m-%d %H:%M:%S"),
+}
+
+local jsonErrorParse, data = pcall(json.encode, userData)
+if not jsonErrorParse then
     ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
-    ngx.say(err)
+    ngx.say("500 HTTP_INTERNAL_SERVER_ERROR")
+    ngx.exit(ngx.status)
+end
+
+local ok, err = db:set("user:" .. user, data)
+if not ok then
+    ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
+    ngx.say("500 HTTP_INTERNAL_SERVER_ERROR")
+    ngx.exit(ngx.status)
+end
+
+local ok, err = db:set("email:" .. email, user)
+if not ok then
+    ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
+    ngx.say("500 HTTP_INTERNAL_SERVER_ERROR")
     ngx.exit(ngx.status)
 end
 
 local ok, err = db:set("auth:" .. user, pass)
 if not ok then
     ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
-    ngx.say(err)
+    ngx.say("500 HTTP_INTERNAL_SERVER_ERROR")
     ngx.exit(ngx.status)
 end
 
 local ok, err = db:expire("auth:" .. user, 2592000)
 if not ok then
     ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
-    ngx.say(err)
+    ngx.say("500 HTTP_INTERNAL_SERVER_ERROR")
     ngx.exit(ngx.status)
 end
 

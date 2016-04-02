@@ -41,7 +41,7 @@ local isValid, values = validatorItem({
 })
 if not isValid then
     ngx.status = ngx.HTTP_BAD_REQUEST
-    ngx.say("400")
+    ngx.say("400 HTTP_BAD_REQUEST")
     ngx.exit(ngx.status)
 end
 
@@ -52,7 +52,7 @@ local token = generateToken()
 local db = redis:new()
 db:set_timeout(1000)
 
-local ok, err = db:connect("teleport_data", redis_port)
+local ok, err = db:connect(redis_ip, redis_port)
 if not ok then
     ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
     ngx.say(err)
