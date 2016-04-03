@@ -10,6 +10,7 @@ TEST_URL = localhost:8081
 
 MOCKS = website
 MOCK_TEST_URL = localhost:8091
+MOCK_TEST_URL_INTER = mock_website
 
 build:
 	@docker build -t $(IMAGE) .
@@ -28,6 +29,7 @@ ifeq ($(ENV),DEV)
 	@docker exec teleport_data \
 		sh -c '(echo SET activate:db4e2a20-31bf-4001-c0f9-2245d260bc2e teleport@imega.club;sleep 1) | redis-cli --pipe'
 endif
+ifeq ($(ENV),PROD)
 	@docker run -d --name teleport_inviter \
 		--link teleport_data:teleport_data \
 		--env REDIS_IP=$(REDIS_IP) \
@@ -37,6 +39,7 @@ endif
 		-v $(CURDIR)/app:/app \
 		$(PORT) \
 		$(IMAGE)
+endif
 
 stop:
 	@-docker stop $(CONTAINERS)
@@ -48,7 +51,17 @@ destroy: clean
 	@-docker rmi -f $(IMAGE)
 
 tests: $(MOCKS)
-	@tests/index.sh $(TEST_URL) $(MOCK_TEST_URL)
+	@docker run -d --name teleport_inviter \
+		--link teleport_data:teleport_data \
+		--link mock_website:mock_website \
+		--env REDIS_IP=$(REDIS_IP) \
+		--env REDIS_PORT=$(REDIS_PORT) \
+		--env HOST_CDN=$(HOST_CDN) \
+		--env HOST_PRIMARY=$(HOST_PRIMARY) \
+		-v $(CURDIR)/app:/app \
+		$(PORT) \
+		$(IMAGE)
+	@tests/index.sh $(TEST_URL) $(MOCK_TEST_URL_INTER)
 
 $(MOCKS):
 	$(MAKE) destroy build start tests TEST_URL=$(MOCK_TEST_URL) --directory=$(CURDIR)/tests/mocks/$@
