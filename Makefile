@@ -61,6 +61,9 @@ tests: $(MOCKS)
 		-v $(CURDIR)/app:/app \
 		$(PORT) \
 		$(IMAGE)
+	@while [ "`docker inspect -f {{.State.Running}} teleport_inviter`" != "true" ]; do \
+		echo "wait db"; sleep 0.3; \
+	done
 	@tests/index.sh $(TEST_URL) $(MOCK_TEST_URL_INTER)
 
 $(MOCKS):
