@@ -96,12 +96,35 @@ if not ngx.HTTP_OK == codeResponse then
     ngx.exit(ngx.status)
 end
 
---local res, err = db:set("auth:" .. validData['login'])
---if not res then
---    ngx.status = ngx.HTTP_BAD_REQUEST
---    ngx.say("400 HTTP_BAD_REQUEST")
---    ngx.exit(ngx.status)
---end
+local userData, err = db:get("user:" .. validData['login'])
+if "string" ~= type(userData) then
+    ngx.status = ngx.HTTP_NOT_FOUND
+    ngx.say("404 HTTP_NOT_FOUND")
+    ngx.exit(ngx.status)
+end
+
+local jsonErrorParse, data = pcall(json.decode, userData)
+if not jsonErrorParse then
+    ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
+    ngx.say("500 HTTP_INTERNAL_SERVER_ERROR")
+    ngx.exit(ngx.status)
+end
+
+data['url'] = validData['url']
+
+local jsonErrorParse, data = pcall(json.encode, data)
+if not jsonErrorParse then
+    ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
+    ngx.say("500 HTTP_INTERNAL_SERVER_ERROR")
+    ngx.exit(ngx.status)
+end
+
+local ok, err = db:set("user:" .. validData['login'], data)
+if not ok then
+    ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
+    ngx.say("500 HTTP_INTERNAL_SERVER_ERROR")
+    ngx.exit(ngx.status)
+end
 
 ngx.status = ngx.HTTP_OK
 ngx.say("200 Ok")
