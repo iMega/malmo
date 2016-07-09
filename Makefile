@@ -1,4 +1,4 @@
-IMAGE = imega/malmo
+TELEPORT_INVITER ?= imegateleport/malmo
 CONTAINERS = teleport_inviter teleport_data
 PORT = -p 8081:80
 REDIS_PORT = 6379
@@ -13,7 +13,10 @@ MOCK_TEST_URL = localhost:8091
 MOCK_TEST_URL_INTER = mock_website
 
 build:
-	@docker build -t $(IMAGE) .
+	@docker build -t $(TELEPORT_INVITER) .
+
+push:
+	@docker push $(TELEPORT_INVITER):latest
 
 prestart:
 	@docker run -d --name teleport_data leanlabs/redis
@@ -40,7 +43,7 @@ ifeq ($(ENV),PROD)
 		--env HOST_PRIMARY=$(HOST_PRIMARY) \
 		-v $(CURDIR)/app:/app \
 		$(PORT) \
-		$(IMAGE)
+		$(TELEPORT_INVITER)
 endif
 
 stop:
@@ -50,7 +53,7 @@ clean: stop
 	@-docker rm -fv $(CONTAINERS)
 
 destroy: clean
-	@-docker rmi -f $(IMAGE)
+	@-docker rmi -f $(TELEPORT_INVITER)
 
 tests: $(MOCKS)
 	@docker run -d --name teleport_inviter \
@@ -62,7 +65,7 @@ tests: $(MOCKS)
 		--env HOST_PRIMARY=$(HOST_PRIMARY) \
 		-v $(CURDIR)/app:/app \
 		$(PORT) \
-		$(IMAGE)
+		$(TELEPORT_INVITER)
 	@while [ "`docker inspect -f {{.State.Running}} teleport_inviter`" != "true" ]; do \
 		echo "wait db"; sleep 0.3; \
 	done
