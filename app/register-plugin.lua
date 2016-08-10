@@ -68,33 +68,33 @@ if not res then
     ngx.exit(ngx.status)
 end
 
---local credentials = base64.encode(validData['login'] .. ":" .. res)
---
---local site = curl.easy()
---    :setopt_url(validData['url'] .. '/teleport')
---    :setopt_httpheader{
---        "Authorization: Basic " .. credentials,
---    }
---
---local perform = function ()
---    site:perform()
---end
---
---if not pcall(perform) then
---    ngx.status = ngx.HTTP_BAD_REQUEST
---    ngx.say("400 HTTP_BAD_REQUEST")
---    ngx.exit(ngx.status)
---end
---
---local codeResponse = site:getinfo_response_code()
---
---site:close()
---
---if not ngx.HTTP_OK == codeResponse then
---    ngx.status = ngx.HTTP_BAD_REQUEST
---    ngx.say("400 HTTP_BAD_REQUEST")
---    ngx.exit(ngx.status)
---end
+local credentials = base64.encode(validData['login'] .. ":" .. res)
+
+local site = curl.easy()
+    :setopt_url(validData['url'] .. '/teleport')
+    :setopt_httpheader{
+        "Authorization: Basic " .. credentials,
+    }
+
+local perform = function ()
+    site:perform()
+end
+
+if not pcall(perform) then
+    ngx.status = ngx.HTTP_BAD_REQUEST
+    ngx.say("400 HTTP_BAD_REQUEST")
+    ngx.exit(ngx.status)
+end
+
+local codeResponse = site:getinfo_response_code()
+
+site:close()
+
+if not ngx.HTTP_OK == codeResponse then
+    ngx.status = ngx.HTTP_BAD_REQUEST
+    ngx.say("400 HTTP_BAD_REQUEST")
+    ngx.exit(ngx.status)
+end
 
 local userData, err = db:get("user:" .. validData['login'])
 if "string" ~= type(userData) then
