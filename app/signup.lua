@@ -81,6 +81,7 @@ local userData = {
     email   = email,
     url     = '',
     create  = os.date("%Y-%m-%d %H:%M:%S"),
+    customScript = 'default.sql',
 }
 
 local jsonErrorParse, data = pcall(json.encode, userData)
